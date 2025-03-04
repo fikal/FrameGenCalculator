@@ -7,7 +7,7 @@
 </head>
 <body>
     <div class="container mt-5">
-        <h1 class="mb-4">Frame Generation Calculator</h1>
+        <h1 class="mb-4">@ViewData["Title"]</h1>
         <!-- Error message placeholder -->
         <div id="errorMsg" class="text-danger mb-3"></div>
         <form id="calcForm">
@@ -35,14 +35,14 @@
             <h3>Recommendation:</h3>
             <div id="recommendation"></div>
         </div>
-        <hr />
-        <footer class="mt-4">
+        <!-- Instead of a footer, we include the credit in a simple centered paragraph -->
+        <div class="text-center mt-4">
             <p class="text-muted">
                 Credit: Inspired by 
                 <a href="https://www.reddit.com/r/nvidia/comments/1j2n82b/psa_how_to_correctly_use_frame_gen/" target="_blank">
                 achentuate and Nvidia Reddit</a>.
             </p>
-        </footer>
+        </div>
     </div>
 
     <script>
