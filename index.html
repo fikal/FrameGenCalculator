@@ -53,7 +53,7 @@
       <!-- Reduction Percentage Slider -->
       <div class="form-group">
         <label for="reductionFactor">
-          Reduction Percentage: <span id="reductionFactorValue">10</span>%
+          Reduction Percentage (e.g., 10 for 10%): <span id="reductionFactorValue">10</span>%
         </label>
         <input id="reductionFactor" class="custom-range" type="range" min="0" max="50" step="1" value="10" required />
       </div>
@@ -69,10 +69,10 @@
     <hr />
     <div id="results" style="display: none;">
       <h2>Results</h2>
-      <p><strong>Effective Base FPS</strong> : <span id="effectiveBaseFPS"></span></p>
-      <p><strong>Effective Monitor Refresh Rate</strong> : <span id="effectiveMonitorFPS"></span></p>
+      <p><strong>Effective Base FPS</strong> (after reduction): <span id="effectiveBaseFPS"></span></p>
+      <p><strong>Effective Monitor Refresh Rate</strong> (after reduction): <span id="effectiveMonitorFPS"></span></p>
       
-      <!-- Display the base metrics only once -->
+      <!-- Base Metrics (shown once) -->
       <div id="baseMetrics">
         <h3>Base Metrics</h3>
         <p>Underlying Effective Base FPS: <span id="underlyingBaseFPS"></span></p>
@@ -118,12 +118,13 @@
       var reductionFactor = parseFloat(document.getElementById("reductionFactor").value) / 100;
       var baselineLatency = parseFloat(document.getElementById("baselineLatency").value);
       
+      // Validate inputs
       if (baseFPS <= 0 || monitorRefresh <= 0 || reductionFactor < 0 || baselineLatency < 0) {
         document.getElementById("errorMsg").textContent = "Please enter valid, positive numbers for all fields.";
         return;
       }
       
-      //FG multipliers (from Nvidia)
+      // Hard-coded FG multipliers (from Nvidia)
       var multipliers = [2, 3, 4];
       
       // Calculate effective values
@@ -133,10 +134,14 @@
       document.getElementById("effectiveBaseFPS").textContent = effectiveBaseFPS.toFixed(2);
       document.getElementById("effectiveMonitorFPS").textContent = effectiveMonitorFPS.toFixed(2);
       
-      // Calculate base metrics (these remain constant across FG multipliers)
-      var underlyingBaseFPS = effectiveBaseFPS; // Always the same
+      // Calculate base metrics (these are independent of FG multiplier)
+      var underlyingBaseFPS = effectiveBaseFPS; // Always the same in our model
       var fpsDrop = baseFPS - underlyingBaseFPS;
-      var latencyFactor = 0.2; // Assume 0.2ms added per FPS drop
+      
+      // Determine latency factor:
+      // If effective base FPS is below 50, we assume a higher penalty per FPS drop.
+      var latencyFactor = (effectiveBaseFPS < 50) ? 2.67 : 0.2;
+      
       var addedLatency = fpsDrop * latencyFactor;
       var estimatedLatency = baselineLatency + addedLatency;
       
@@ -146,7 +151,7 @@
       document.getElementById("addedLatency").textContent = addedLatency.toFixed(2);
       document.getElementById("estimatedLatency").textContent = estimatedLatency.toFixed(2);
       
-      // Prepare list for FG multipliers (only display total FPS per multiplier)
+      // Prepare list for FG multipliers (only displaying Total FPS for each multiplier)
       var calculationsList = document.getElementById("calculationsList");
       calculationsList.innerHTML = ""; // Clear previous results
       
@@ -157,10 +162,15 @@
         calculationsList.appendChild(li);
       });
       
-      // Determine recommended FG: highest multiplier whose Total FPS does not exceed effectiveMonitorFPS
+      // Determine recommended FG:
+      // Normally, we select the highest multiplier whose Total FPS does not exceed effectiveMonitorFPS.
+      // However, if effectiveBaseFPS is below 50, cap the recommendation at 2x FG.
       var recommendedFG = 0;
       var recommendedTotalFPS = 0;
       multipliers.forEach(function(multiplier) {
+        if(effectiveBaseFPS < 50 && multiplier > 2) {
+          return; // Skip multipliers above 2 if base FPS is low.
+        }
         var totalFPS = effectiveBaseFPS * multiplier;
         if (totalFPS <= effectiveMonitorFPS) {
           recommendedFG = multiplier;
@@ -168,12 +178,18 @@
         }
       });
       
-      // Display recommendation
+      // Display recommendation with explanation if capped due to low base FPS.
       var recommendationDiv = document.getElementById("recommendation");
       if (recommendedFG > 0) {
-        recommendationDiv.innerHTML = "Recommended Frame Generation setting: <strong>" + recommendedFG + "x FG</strong><br/>" +
-          "This setting gives a total FPS of: " + recommendedTotalFPS.toFixed(2) +
-          ", which is below your effective monitor refresh cap of " + effectiveMonitorFPS.toFixed(2) + " FPS.";
+        if(effectiveBaseFPS < 50) {
+          recommendationDiv.innerHTML = "Due to your low effective base FPS (" + effectiveBaseFPS.toFixed(2) + "), using a high FG multiplier may introduce extra latency. Therefore, the recommendation is capped at <strong>2x FG</strong>.<br/>" +
+            "This setting gives a total FPS of: " + recommendedTotalFPS.toFixed(2) +
+            ", which is below your effective monitor refresh cap of " + effectiveMonitorFPS.toFixed(2) + " FPS.";
+        } else {
+          recommendationDiv.innerHTML = "Recommended Frame Generation setting: <strong>" + recommendedFG + "x FG</strong><br/>" +
+            "This setting gives a total FPS of: " + recommendedTotalFPS.toFixed(2) +
+            ", which is below your effective monitor refresh cap of " + effectiveMonitorFPS.toFixed(2) + " FPS.";
+        }
       } else {
         recommendationDiv.textContent = "None of the available Frame Generation settings (" + multipliers.join(", ") + ") are suitable without exceeding your monitor's effective refresh rate.";
       }
