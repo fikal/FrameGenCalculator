@@ -3,54 +3,31 @@
 <head>
   <meta charset="utf-8" />
   <title>Frame Generation Calculator</title>
-  <meta name="description" content="A simple frame generation calculator that recommends Nvidia FG settings based on your base FPS and monitor refresh rate." />
-  <meta name="keywords" content="Frame Generation, Nvidia FG, FPS, Monitor Refresh, Calculator, Nvidia, Reddit, Frame Gen" />
-  <meta name="author" content="Fikal" />
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <meta name="description" content="A comprehensive frame generation calculator that recommends Nvidia FG settings and estimates input latency based on your base FPS, monitor refresh rate, and custom settings." />
+  <meta name="keywords" content="Frame Generation, Nvidia FG, FPS, Monitor Refresh, Input Latency, Calculator, Nvidia, Reddit" />
+  <meta name="author" content="Fikal" />
+
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" />
   <style>
     /* Increase font size and spacing on small screens */
     @media (max-width: 576px) {
-      body {
-        font-size: 1.10rem;
-      }
-      h1 {
-        font-size: 1.3rem;
-      }
-	  h3 {
-        font-size: 1.5rem;
-      }
-      label, input, button {
-        font-size: 1.10rem;
-      }
-      .container {
-        padding: .5rem;
-      }
-      .form-group {
-        margin-bottom: 1.5rem;
-      }
+      body { font-size: 1.10rem; }
+      h1 { font-size: 1.3rem; }
+      h3 { font-size: 1.5rem; }
+      label, input, button { font-size: 1.10rem; }
+      .container { padding: 0.5rem; }
+      .form-group { margin-bottom: 1.5rem; }
     }
-	
-	@media (min-width: 577px) and (max-width: 1100px) {
-	  body {
-		font-size: 1.15rem;
-	  }
-	  h1 {
-		font-size: 1.5rem;
-	  }
-	  h3 {
-		font-size: 1.75rem;
-	  }
-	  label, input, button {
-		font-size: 1.15rem;
-	  }
-	  .container {
-		padding: 1rem;
-	  }
-	  .form-group {
-		margin-bottom: 1.5rem;
-	  }
-	}
+    /* Increase font size and spacing on tablets */
+    @media (min-width: 577px) and (max-width: 768px) {
+      body { font-size: 1.15rem; }
+      h1 { font-size: 1.5rem; }
+      h3 { font-size: 1.75rem; }
+      label, input, button { font-size: 1.15rem; }
+      .container { padding: 1rem; }
+      .form-group { margin-bottom: 1.5rem; }
+    }
   </style>
 </head>
 <body>
@@ -59,17 +36,33 @@
     <!-- Error message placeholder -->
     <div id="errorMsg" class="text-danger mb-3"></div>
     <form id="calcForm">
+      <!-- Base FPS Input -->
       <div class="form-group">
         <label for="baseFPS">Base FPS (without FG):</label>
         <input id="baseFPS" class="form-control" type="number" step="any" required value="60"
                max="999"
                oninput="if(this.value.length > 3){this.value = this.value.slice(0,3);}"/>
       </div>
+      <!-- Monitor Refresh Rate Input -->
       <div class="form-group">
         <label for="monitorRefresh">Monitor Refresh Rate (Hz):</label>
         <input id="monitorRefresh" class="form-control" type="number" step="any" required value="144"
                max="999"
                oninput="if(this.value.length > 3){this.value = this.value.slice(0,3);}"/>
+      </div>
+      <!-- Reduction Percentage Slider -->
+      <div class="form-group">
+        <label for="reductionFactor">
+          Reduction Percentage: <span id="reductionFactorValue">10</span>%
+        </label>
+        <input id="reductionFactor" class="custom-range" type="range" min="0" max="50" step="1" value="10" required />
+      </div>
+      <!-- Baseline Input Latency Slider -->
+      <div class="form-group">
+        <label for="baselineLatency">
+          Baseline Input Latency (ms): <span id="baselineLatencyValue">30</span> ms
+        </label>
+        <input id="baselineLatency" class="custom-range" type="range" min="0" max="100" step="1" value="30" required />
       </div>
       <button type="submit" class="btn btn-primary">Calculate</button>
     </form>
@@ -78,60 +71,97 @@
       <h2>Results</h2>
       <p><strong>Effective Base FPS</strong> : <span id="effectiveBaseFPS"></span></p>
       <p><strong>Effective Monitor Refresh Rate</strong> : <span id="effectiveMonitorFPS"></span></p>
-      <h3>Frame Generation Calculations:</h3>
+      
+      <!-- Display the base metrics only once -->
+      <div id="baseMetrics">
+        <h3>Base Metrics</h3>
+        <p>Underlying Effective Base FPS: <span id="underlyingBaseFPS"></span></p>
+        <p>FPS Drop: <span id="fpsDrop"></span></p>
+        <p>Additional Latency: <span id="addedLatency"></span> ms</p>
+        <p>Estimated Total Latency: <span id="estimatedLatency"></span> ms</p>
+      </div>
+      
+      <h3>Frame Generation Calculations</h3>
       <ul id="calculationsList"></ul>
-      <h3>Recommendation:</h3>
+      
+      <h3>Recommendation</h3>
       <div id="recommendation"></div>
     </div>
-    <!-- Credit section placed within main container -->
+    <!-- Credit Section -->
     <div class="text-center mt-4">
       <p class="text-muted">
-        Credit: <a href="https://www.reddit.com/r/nvidia/comments/1j2n82b/psa_how_to_correctly_use_frame_gen/" target="_blank">
-          achentuate and Nvidia Reddit</a>
+        Credit: Inspired by 
+        <a href="https://www.reddit.com/r/nvidia/comments/1j2n82b/psa_how_to_correctly_use_frame_gen/" target="_blank">
+          achentuate and Nvidia Reddit
+        </a>.
       </p>
     </div>
   </div>
 
   <script>
-    // Add event listener to the form submission
+    // Update slider display values in real time
+    document.getElementById("reductionFactor").addEventListener("input", function() {
+      document.getElementById("reductionFactorValue").textContent = this.value;
+    });
+    document.getElementById("baselineLatency").addEventListener("input", function() {
+      document.getElementById("baselineLatencyValue").textContent = this.value;
+    });
+    
     document.getElementById("calcForm").addEventListener("submit", function (e) {
       e.preventDefault();
-      // Clear previous errors and results
       document.getElementById("errorMsg").textContent = "";
       document.getElementById("results").style.display = "none";
-
-      // Get input values
+      
+      // Parse input values
       var baseFPS = parseFloat(document.getElementById("baseFPS").value);
       var monitorRefresh = parseFloat(document.getElementById("monitorRefresh").value);
+      var reductionFactor = parseFloat(document.getElementById("reductionFactor").value) / 100;
+      var baselineLatency = parseFloat(document.getElementById("baselineLatency").value);
       
-      // Validate input values
-      if (baseFPS <= 0 || monitorRefresh <= 0) {
-        document.getElementById("errorMsg").textContent = "Please enter positive numbers for both fields.";
+      if (baseFPS <= 0 || monitorRefresh <= 0 || reductionFactor < 0 || baselineLatency < 0) {
+        document.getElementById("errorMsg").textContent = "Please enter valid, positive numbers for all fields.";
         return;
       }
       
-      // Apply the 10% reduction to both the base FPS and monitor refresh rate
-      var effectiveBaseFPS = baseFPS * 0.9;
-      var effectiveMonitorFPS = monitorRefresh * 0.9;
+      //FG multipliers (from Nvidia)
+      var multipliers = [2, 3, 4];
       
-      // Display effective values
+      // Calculate effective values
+      var effectiveBaseFPS = baseFPS * (1 - reductionFactor);
+      var effectiveMonitorFPS = monitorRefresh * (1 - reductionFactor);
+      
       document.getElementById("effectiveBaseFPS").textContent = effectiveBaseFPS.toFixed(2);
       document.getElementById("effectiveMonitorFPS").textContent = effectiveMonitorFPS.toFixed(2);
       
-      // Calculate total FPS for each FG multiplier
-      var multipliers = [2, 3, 4];
-      var recommendedFG = 0;
-      var recommendedTotalFPS = 0;
+      // Calculate base metrics (these remain constant across FG multipliers)
+      var underlyingBaseFPS = effectiveBaseFPS; // Always the same
+      var fpsDrop = baseFPS - underlyingBaseFPS;
+      var latencyFactor = 0.2; // Assume 0.2ms added per FPS drop
+      var addedLatency = fpsDrop * latencyFactor;
+      var estimatedLatency = baselineLatency + addedLatency;
+      
+      // Display the base metrics
+      document.getElementById("underlyingBaseFPS").textContent = underlyingBaseFPS.toFixed(2);
+      document.getElementById("fpsDrop").textContent = fpsDrop.toFixed(2);
+      document.getElementById("addedLatency").textContent = addedLatency.toFixed(2);
+      document.getElementById("estimatedLatency").textContent = estimatedLatency.toFixed(2);
+      
+      // Prepare list for FG multipliers (only display total FPS per multiplier)
       var calculationsList = document.getElementById("calculationsList");
-      calculationsList.innerHTML = ""; // clear previous results
+      calculationsList.innerHTML = ""; // Clear previous results
       
       multipliers.forEach(function(multiplier) {
         var totalFPS = effectiveBaseFPS * multiplier;
         var li = document.createElement("li");
-        li.textContent = multiplier + "x FG: Total FPS = " + totalFPS.toFixed(2) + " (Base FPS: " + effectiveBaseFPS.toFixed(2) + ")";
+        li.textContent = multiplier + "x FG: Total FPS = " + totalFPS.toFixed(2);
         calculationsList.appendChild(li);
-        
-        // Choose the multiplier if it does not exceed the effective monitor refresh rate
+      });
+      
+      // Determine recommended FG: highest multiplier whose Total FPS does not exceed effectiveMonitorFPS
+      var recommendedFG = 0;
+      var recommendedTotalFPS = 0;
+      multipliers.forEach(function(multiplier) {
+        var totalFPS = effectiveBaseFPS * multiplier;
         if (totalFPS <= effectiveMonitorFPS) {
           recommendedFG = multiplier;
           recommendedTotalFPS = totalFPS;
@@ -141,13 +171,13 @@
       // Display recommendation
       var recommendationDiv = document.getElementById("recommendation");
       if (recommendedFG > 0) {
-        recommendationDiv.innerHTML = "Frame Generation setting: <strong>" + recommendedFG + "x FG</strong><br/><br/>" +
-          "This setting gives a total FPS of: " + recommendedTotalFPS.toFixed(2) + ", which is below your monitor cap of " + effectiveMonitorFPS.toFixed(2) + " FPS.";
+        recommendationDiv.innerHTML = "Recommended Frame Generation setting: <strong>" + recommendedFG + "x FG</strong><br/>" +
+          "This setting gives a total FPS of: " + recommendedTotalFPS.toFixed(2) +
+          ", which is below your effective monitor refresh cap of " + effectiveMonitorFPS.toFixed(2) + " FPS.";
       } else {
-        recommendationDiv.textContent = "None of the available Frame Generation settings (2x, 3x, 4x) are suitable without exceeding your monitor's effective refresh rate.";
+        recommendationDiv.textContent = "None of the available Frame Generation settings (" + multipliers.join(", ") + ") are suitable without exceeding your monitor's effective refresh rate.";
       }
       
-      // Reveal the results section
       document.getElementById("results").style.display = "block";
     });
   </script>
